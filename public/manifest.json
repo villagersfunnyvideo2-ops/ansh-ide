@@ -1,0 +1,15 @@
+{
+  "short_name": "AnshIDEApp",
+  "name": "Ansh Generated App",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1006/1006771.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1e1e1e",
+  "theme_color": "#007acc",
+  "display": "standalone"
+}
