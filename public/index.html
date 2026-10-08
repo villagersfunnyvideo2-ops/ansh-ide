@@ -8,54 +8,86 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: sans-serif; background: #1e1e1e; color: #fff; display: flex; flex-direction: column; height: 100vh; }
-        header { background: #252526; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1e1e1e; color: #fff; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { background: #252526; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; height: 45px; }
+        .logo { font-weight: bold; color: #007acc; font-size: 16px; }
         .btn-group { display: flex; gap: 8px; }
-        .run-btn { background: #28a745; color: white; border: none; padding: 8px 14px; font-weight: bold; border-radius: 4px; cursor: pointer; }
-        .pwa-btn { background: #007acc; color: white; border: none; padding: 8px 14px; font-weight: bold; border-radius: 4px; cursor: pointer; }
-        .workspace { display: flex; flex-direction: column; flex: 1; }
-        .tabs { display: flex; background: #2d2d2d; }
-        .tab { padding: 10px 15px; cursor: pointer; color: #aaa; background: #2d2d2d; border-right: 1px solid #1e1e1e; }
+        button { border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .run-btn { background: #28a745; color: white; }
+        .pwa-btn { background: #007acc; color: white; }
+        
+        .main-container { display: flex; flex: 1; height: calc(100vh - 45px); }
+        
+        /* Sidebar Styles */
+        .sidebar { width: 220px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 10px; background: #2d2d2d; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #aaa; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-actions button { background: #3c3c3c; color: #fff; padding: 2px 6px; font-size: 11px; margin-left: 2px; }
+        .file-tree { flex: 1; overflow-y: auto; padding: 5px 0; }
+        .tree-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #ccc; }
+        .tree-item:hover { background: #2a2d2e; }
+        .tree-item.active { background: #37373d; color: #fff; font-weight: bold; }
+        .delete-btn { color: #ff5555; font-size: 11px; opacity: 0.7; }
+        .delete-btn:hover { opacity: 1; }
+
+        /* Workspace Styles */
+        .workspace { flex: 1; display: flex; flex-direction: column; }
+        .tabs { display: flex; background: #2d2d2d; overflow-x: auto; height: 35px; }
+        .tab { padding: 8px 15px; cursor: pointer; color: #aaa; background: #2d2d2d; border-right: 1px solid #1e1e1e; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
         .tab.active { background: #1e1e1e; color: #fff; border-top: 2px solid #007acc; }
-        #editor { flex: 1; min-height: 45vh; }
+        
+        #editor { flex: 1; min-height: 40vh; }
         .output-box { height: 35vh; background: #121212; border-top: 2px solid #333; display: flex; flex-direction: column; }
-        .output-header { background: #252526; padding: 6px 12px; font-size: 12px; color: #aaa; }
-        #terminal { padding: 10px; font-family: monospace; color: #00ff00; overflow-y: auto; flex: 1; white-space: pre-wrap; }
+        .output-header { background: #252526; padding: 6px 12px; font-size: 11px; color: #aaa; font-weight: bold; }
+        #terminal { padding: 10px; font-family: monospace; color: #00ff00; overflow-y: auto; flex: 1; white-space: pre-wrap; font-size: 13px; }
         #livePreview { width: 100%; height: 100%; border: none; background: white; display: none; }
     </style>
 </head>
 <body>
 
     <header>
-        <span style="font-weight: bold; color: #007acc;">Ansh Online Web IDE</span>
+        <span class="logo">⚡ Ansh Cloud IDE</span>
         <div class="btn-group">
             <button class="run-btn" onclick="runCode()">▶ Run</button>
             <button class="pwa-btn" onclick="installApp()">📲 Export App</button>
         </div>
     </header>
 
-    <div class="workspace">
-        <div class="tabs" id="tabs"></div>
-        <div id="editor"></div>
+    <div class="main-container">
+        <!-- Sidebar Explorer -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>Explorer</span>
+                <div class="sidebar-actions">
+                    <button onclick="createNewFile()">+ File</button>
+                    <button onclick="createNewFolder()">+ Folder</button>
+                </div>
+            </div>
+            <div class="file-tree" id="fileTree"></div>
+        </div>
 
-        <div class="output-box">
-            <div class="output-header">OUTPUT TERMINAL / PREVIEW</div>
-            <div id="terminal">Press 'Run' to execute code.</div>
-            <iframe id="livePreview"></iframe>
+        <!-- Editor & Output Area -->
+        <div class="workspace">
+            <div class="tabs" id="tabs"></div>
+            <div id="editor"></div>
+
+            <div class="output-box">
+                <div class="output-header">OUTPUT TERMINAL / PREVIEW</div>
+                <div id="terminal">Press 'Run' to execute code.</div>
+                <iframe id="livePreview"></iframe>
+            </div>
         </div>
     </div>
 
     <script>
         let editor;
         let files = {
-            'index.html': '<h1>My Web App</h1>\n<p>This is created inside Ansh Cloud IDE!</p>',
-            'main.py': 'print("Hello World!")',
-            'app.js': 'console.log("App Ready!");'
+            'index.html': '<h1>My Custom Web Project</h1>\n<p>Edit this code and click Run!</p>',
+            'style.css': 'body { background: #f4f4f4; color: #333; font-family: sans-serif; }',
+            'main.py': 'print("Hello from Ansh Cloud Server!")\nfor i in range(1, 4):\n    print(f"Loop count: {i}")'
         };
         let activeFile = 'index.html';
         let deferredPrompt;
 
-        // Register Service Worker for PWA
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -66,7 +98,7 @@
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
-                        alert('App Installed Successfully on Phone!');
+                        alert('App Installed Successfully!');
                     }
                     deferredPrompt = null;
                 });
@@ -79,17 +111,54 @@
         require(['vs/editor/editor.main'], function() {
             editor = monaco.editor.create(document.getElementById('editor'), {
                 value: files[activeFile],
-                language: 'html',
+                language: getLanguage(activeFile),
                 theme: 'vs-dark',
                 automaticLayout: true
             });
 
             editor.onDidChangeModelContent(() => {
-                files[activeFile] = editor.getValue();
+                if (activeFile) {
+                    files[activeFile] = editor.getValue();
+                }
             });
 
+            renderSidebar();
             renderTabs();
         });
+
+        function getLanguage(filename) {
+            if (filename.endsWith('.py')) return 'python';
+            if (filename.endsWith('.html')) return 'html';
+            if (filename.endsWith('.css')) return 'css';
+            if (filename.endsWith('.js')) return 'javascript';
+            if (filename.endsWith('.json')) return 'json';
+            return 'plaintext';
+        }
+
+        function renderSidebar() {
+            const tree = document.getElementById('fileTree');
+            tree.innerHTML = '';
+            for (let f in files) {
+                const item = document.createElement('div');
+                item.className = 'tree-item' + (f === activeFile ? ' active' : '');
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.innerText = f;
+                nameSpan.onclick = () => switchFile(f);
+
+                const delBtn = document.createElement('span');
+                delBtn.className = 'delete-btn';
+                delBtn.innerText = '✖';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteFile(f);
+                };
+
+                item.appendChild(nameSpan);
+                item.appendChild(delBtn);
+                tree.appendChild(item);
+            }
+        }
 
         function renderTabs() {
             const container = document.getElementById('tabs');
@@ -105,10 +174,46 @@
 
         function switchFile(f) {
             activeFile = f;
-            editor.setValue(files[f]);
-            let lang = f.endsWith('.py') ? 'python' : f.endsWith('.html') ? 'html' : 'javascript';
-            monaco.editor.setModelLanguage(editor.getModel(), lang);
+            editor.setValue(files[f] || '');
+            monaco.editor.setModelLanguage(editor.getModel(), getLanguage(f));
+            renderSidebar();
             renderTabs();
+        }
+
+        function createNewFile() {
+            let fileName = prompt("Enter file name (e.g. script.js, style.css, app/index.html):");
+            if (fileName) {
+                fileName = fileName.trim();
+                if (files[fileName] !== undefined) {
+                    alert("File already exists!");
+                    return;
+                }
+                files[fileName] = "";
+                switchFile(fileName);
+            }
+        }
+
+        function createNewFolder() {
+            let folderName = prompt("Enter folder name (e.g. src, components):");
+            if (folderName) {
+                folderName = folderName.trim().replace(/\/$/, '');
+                let defaultFile = `${folderName}/index.js`;
+                files[defaultFile] = "// New folder file";
+                switchFile(defaultFile);
+            }
+        }
+
+        function deleteFile(f) {
+            if (Object.keys(files).length <= 1) {
+                alert("Kam se kam ek file hona zaroori hai!");
+                return;
+            }
+            if (confirm(`Kya aap "${f}" file ko delete karna chahte hain?`)) {
+                delete files[f];
+                let remainingFiles = Object.keys(files);
+                activeFile = remainingFiles[0];
+                switchFile(activeFile);
+            }
         }
 
         async function runCode() {
@@ -118,7 +223,15 @@
             if (activeFile.endsWith('.html')) {
                 term.style.display = 'none';
                 prev.style.display = 'block';
-                prev.srcdoc = files[activeFile];
+                
+                // Inject CSS & JS files automatically if present
+                let htmlCode = files[activeFile];
+                for (let filename in files) {
+                    if (filename.endsWith('.css')) {
+                        htmlCode = `<style>${files[filename]}</style>` + htmlCode;
+                    }
+                }
+                prev.srcdoc = htmlCode;
             } else {
                 prev.style.display = 'none';
                 term.style.display = 'block';
