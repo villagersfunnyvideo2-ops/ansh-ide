@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansh Cloud IDE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: #1e1e1e; color: #fff; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #252526; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .run-btn { background: #28a745; color: white; border: none; padding: 8px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        .workspace { display: flex; flex-direction: column; flex: 1; }
+        .tabs { display: flex; background: #2d2d2d; }
+        .tab { padding: 10px 15px; cursor: pointer; color: #aaa; background: #2d2d2d; border-right: 1px solid #1e1e1e; }
+        .tab.active { background: #1e1e1e; color: #fff; border-top: 2px solid #007acc; }
+        #editor { flex: 1; min-height: 45vh; }
+        .output-box { height: 35vh; background: #121212; border-top: 2px solid #333; display: flex; flex-direction: column; }
+        .output-header { background: #252526; padding: 6px 12px; font-size: 12px; color: #aaa; }
+        #terminal { padding: 10px; font-family: monospace; color: #00ff00; overflow-y: auto; flex: 1; white-space: pre-wrap; }
+        #livePreview { width: 100%; height: 100%; border: none; background: white; display: none; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span style="font-weight: bold; color: #007acc;">Ansh Online Web IDE</span>
+        <button class="run-btn" onclick="runCode()">▶ Run Code</button>
+    </header>
+
+    <div class="workspace">
+        <div class="tabs" id="tabs"></div>
+        <div id="editor"></div>
+
+        <div class="output-box">
+            <div class="output-header">OUTPUT TERMINAL</div>
+            <div id="terminal">Press 'Run Code' to execute.</div>
+            <iframe id="livePreview"></iframe>
+        </div>
+    </div>
+
+    <script>
+        let editor;
+        let files = {
+            'main.py': 'print("Hello from Ansh Server!")\nfor i in range(1, 4):\n    print(f"Step {i} completed")',
+            'index.html': '<h1>Hello World</h1>\n<p>This is a live preview!</p>',
+            'app.js': 'console.log("JavaScript Running!");'
+        };
+        let activeFile = 'main.py';
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: files[activeFile],
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true
+            });
+
+            editor.onDidChangeModelContent(() => {
+                files[activeFile] = editor.getValue();
+            });
+
+            renderTabs();
+        });
+
+        function renderTabs() {
+            const container = document.getElementById('tabs');
+            container.innerHTML = '';
+            for (let f in files) {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (f === activeFile ? ' active' : '');
+                tab.innerText = f;
+                tab.onclick = () => switchFile(f);
+                container.appendChild(tab);
+            }
+        }
+
+        function switchFile(f) {
+            activeFile = f;
+            editor.setValue(files[f]);
+            let lang = f.endsWith('.py') ? 'python' : f.endsWith('.html') ? 'html' : 'javascript';
+            monaco.editor.setModelLanguage(editor.getModel(), lang);
+            renderTabs();
+        }
+
+        async function runCode() {
+            const term = document.getElementById('terminal');
+            const prev = document.getElementById('livePreview');
+
+            if (activeFile.endsWith('.html')) {
+                term.style.display = 'none';
+                prev.style.display = 'block';
+                prev.srcdoc = files[activeFile];
+            } else {
+                prev.style.display = 'none';
+                term.style.display = 'block';
+                term.innerText = "Executing on server...";
+
+                try {
+                    const res = await fetch('/api/run', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: activeFile, code: files[activeFile] })
+                    });
+                    const data = await res.json();
+                    term.innerText = data.output || data.error;
+                } catch (err) {
+                    term.innerText = "Error connecting to server.";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
